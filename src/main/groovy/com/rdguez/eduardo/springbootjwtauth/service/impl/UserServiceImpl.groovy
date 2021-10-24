@@ -8,10 +8,10 @@ import com.rdguez.eduardo.springbootjwtauth.service.UserService
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.security.core.authority.SimpleGrantedAuthority
-import org.springframework.security.core.userdetails.User as UserDetails
+import org.springframework.security.core.userdetails.UserDetails
 import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.core.userdetails.UsernameNotFoundException
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
+import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
@@ -26,20 +26,21 @@ class UserServiceImpl implements UserService, UserDetailsService {
   @Autowired
   RoleService roleService
 
-  BCryptPasswordEncoder bCryptPasswordEncoder
+  @Autowired
+  PasswordEncoder passwordEncoder
 
   @Override
   UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-    User user = userRepository.findByUsername(username)
+    User user = findUser(username)
     if (user) {
-      log.error("User {} found in the database", username)
+      log.info("User {} found in the database", username)
     } else {
       throw new UsernameNotFoundException("User ${username} not found in the database")
     }
     Collection<SimpleGrantedAuthority> authorities = user.roles.collect { role ->
       new SimpleGrantedAuthority(role.name)
     }
-    return new UserDetails(user.username, user.password, authorities)
+    new org.springframework.security.core.userdetails.User(user.username, user.password, authorities)
   }
 
   @Override
@@ -47,7 +48,7 @@ class UserServiceImpl implements UserService, UserDetailsService {
   User saveUser(User user) {
     log.info("Saving new user to the database")
     user.with {
-      it.password = bCryptPasswordEncoder.encode(password)
+      it.password = passwordEncoder.encode(password)
     }
     userRepository.save(user)
   }
@@ -68,7 +69,7 @@ class UserServiceImpl implements UserService, UserDetailsService {
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   void assignRoleToUser(String roleName, String username) {
     log.info("Adding role {} to user {}", roleName, username)
-    User user = userRepository.findByUsername(username)
+    User user = findUser(username)
     Role role = roleService.findRole(roleName)
     user.roles.add(role)
   }

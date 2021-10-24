@@ -6,10 +6,8 @@ import javax.persistence.GeneratedValue
 import javax.persistence.GenerationType
 import javax.persistence.Id
 import javax.persistence.ManyToMany
-import javax.persistence.Table
 
 @Entity
-@Table(name = "USERS")
 class User {
   @Id
   @GeneratedValue(strategy = GenerationType.AUTO)

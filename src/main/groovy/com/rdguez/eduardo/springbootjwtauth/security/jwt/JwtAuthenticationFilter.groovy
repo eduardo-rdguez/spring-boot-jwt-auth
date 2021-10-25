@@ -2,7 +2,9 @@ package com.rdguez.eduardo.springbootjwtauth.security.jwt
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import com.fasterxml.jackson.databind.ObjectMapper
 import groovy.util.logging.Slf4j
+import org.springframework.http.MediaType
 import org.springframework.security.authentication.AuthenticationManager
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.Authentication
@@ -38,13 +40,14 @@ class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilter {
   @Override
   protected void successfulAuthentication(HttpServletRequest request, HttpServletResponse response, FilterChain chain, Authentication authentication) throws IOException, ServletException {
     User user = (User) authentication.getPrincipal()
-    String accessToken = generateToken(user)
-    String refreshToken = refreshToken(user)
-    response.setHeader("access_token", accessToken)
-    response.setHeader("refresh_token", refreshToken)
+    String accessToken = generateAccessToken(user)
+    String refreshToken = generateRefreshToken(user)
+    Map tokens = [access_token: accessToken, refresh_token: refreshToken]
+    response.setContentType(MediaType.APPLICATION_JSON_VALUE)
+    new ObjectMapper().writeValue(response.getOutputStream(), tokens)
   }
 
-  String generateToken(User user) {
+  static String generateAccessToken(User user) {
     JWT.create()
       .withSubject(user.username)
       .withExpiresAt(new Date(System.currentTimeMillis() + 5 * 60 * 1000))
@@ -52,7 +55,7 @@ class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilter {
       .sign(Algorithm.HMAC256("secret".getBytes()))
   }
 
-  String refreshToken(User user) {
+  static String generateRefreshToken(User user) {
     JWT.create()
       .withSubject(user.username)
       .withExpiresAt(new Date(System.currentTimeMillis() + 10 * 60 * 1000))

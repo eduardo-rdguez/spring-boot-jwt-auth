@@ -21,20 +21,16 @@ import javax.servlet.http.HttpServletResponse
 @Slf4j
 class JwtAuthorizationFilter extends OncePerRequestFilter {
 
-  private final String PREFIX = "Bearer "
+  private final String BEARER_PREFIX = "Bearer "
 
   @Override
   protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, java.io.IOException {
     if (validateJwtToken(request)) {
       try {
-        DecodedJWT verifiedToken = verifyToken(request)
+        DecodedJWT verifiedToken = verifyJwtToken(request)
 
         String username = verifiedToken.getSubject()
-        List<String> roles = verifiedToken.getClaim("roles").asArray(String)
-
-        Collection<SimpleGrantedAuthority> authorities = roles.collect { role ->
-          new SimpleGrantedAuthority(role)
-        }
+        Collection<SimpleGrantedAuthority> authorities = grantedAuthorities(verifiedToken)
 
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(username, null, authorities)
         SecurityContextHolder.getContext().setAuthentication(authenticationToken)
@@ -57,8 +53,15 @@ class JwtAuthorizationFilter extends OncePerRequestFilter {
     new ObjectMapper().writeValue(response.getOutputStream(), error)
   }
 
-  DecodedJWT verifyToken(HttpServletRequest request) {
-    String token = request.getHeader(HttpHeaders.AUTHORIZATION).substring(PREFIX.length())
+  static Collection<SimpleGrantedAuthority> grantedAuthorities(DecodedJWT verifiedToken) {
+    List<String> roles = verifiedToken.getClaim("roles").asArray(String)
+    roles.collect { role ->
+      new SimpleGrantedAuthority(role)
+    }
+  }
+
+  DecodedJWT verifyJwtToken(HttpServletRequest request) {
+    String token = request.getHeader(HttpHeaders.AUTHORIZATION).substring(BEARER_PREFIX.length())
     Algorithm algorithm = Algorithm.HMAC256("secret".getBytes())
     JWTVerifier verifier = JWT.require(algorithm).build()
     verifier.verify(token)
@@ -66,6 +69,6 @@ class JwtAuthorizationFilter extends OncePerRequestFilter {
 
   Boolean validateJwtToken(HttpServletRequest request) {
     String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION)
-    authorizationHeader && authorizationHeader.startsWith(PREFIX)
+    authorizationHeader && authorizationHeader.startsWith(BEARER_PREFIX)
   }
 }
